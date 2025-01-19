@@ -100,6 +100,34 @@ app.MapGet("/api/seed-products", async (ProductDbContext dbContext, Cancellation
     return Results.BadRequest(new { Message = "Ürünler zaten mevcut." });
 });
 
+// Stok güncelleme endpoint'i
+app.MapPost("/api/products/update-stock", async (ProductDbContext dbContext, UpdateStockDto stockDto, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var product = await dbContext.Products.FindAsync(new object[] { stockDto.ProductId }, cancellationToken);
+        if (product == null)
+        {
+            return Results.NotFound(new { Message = "Ürün bulunamadý." });
+        }
+
+        // Stok miktarýný düþür
+        if (product.Stock >= stockDto.Quantity)
+        {
+            product.Stock -= stockDto.Quantity;
+            dbContext.Products.Update(product);
+            await dbContext.SaveChangesAsync(cancellationToken);
+            return Results.Ok(new { Message = "Stok baþarýyla güncellendi." });
+        }
+
+        return Results.BadRequest(new { Message = "Yeterli stok yok." });
+    }
+    catch (OperationCanceledException)
+    {
+        return Results.StatusCode(499); // Client Closed Request
+    }
+});
+
 // Migration'larý otomatik olarak uygula
 using (var scope = app.Services.CreateScope())
 {
